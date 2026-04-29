@@ -22,7 +22,7 @@
           </a>
         </li>
         <li id="authNav">
-          <a href="#" class="btn btn-secondary" onclick="openAuthModal('login')">Login</a>
+          <a href="#" class="btn btn-secondary" onclick="handlers.openAuthModal('login'); return false;">Login</a>
         </li>
       </ul>
     </nav>
@@ -34,13 +34,11 @@
     <section id="home" style="text-align: center; padding: 60px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; margin: 20px 0;">
       <h1 style="font-size: 48px; margin-bottom: 20px;">Welcome to EcoStore</h1>
       <p style="font-size: 20px; margin-bottom: 30px;">Premium products delivered to your door</p>
-      <button class="btn btn-primary" onclick="document.getElementById('products').scrollIntoView({behavior: 'smooth'})">
+      <button class="btn btn-primary" onclick="handlers.scrollToSection('products')">
         Start Shopping
       </button>
     </section>
 
-    <!-- Products Section -->
-    <section id="products">
       <h2 style="margin: 40px 0 20px; font-size: 32px;">Our Products</h2>
       
       <div style="display: flex; gap: 10px; margin-bottom: 20px;">
@@ -116,14 +114,14 @@
           <label>Password</label>
           <input type="password" id="loginPassword" placeholder="••••••••">
         </div>
-        <button class="btn btn-primary" onclick="handleLogin()" style="width: 100%; margin-bottom: 10px;">
+        <button class="btn btn-primary" onclick="handlers.login()" style="width: 100%; margin-bottom: 10px;">
           Login
         </button>
         <p style="text-align: center; margin-bottom: 10px;">
           Don't have an account? 
-          <a href="#" onclick="openAuthModal('register'); return false;" style="color: var(--primary-color); font-weight: 500;">Sign Up</a>
+          <a href="#" onclick="handlers.openAuthModal('register'); return false;" style="color: var(--primary-color); font-weight: 500;">Sign Up</a>
         </p>
-        <button class="btn btn-secondary" onclick="closeAuthModal()" style="width: 100%;">
+        <button class="btn btn-secondary" onclick="handlers.closeAuthModal()" style="width: 100%;">
           Close
         </button>
       </div>
@@ -141,14 +139,14 @@
           <label>Password</label>
           <input type="password" id="registerPassword" placeholder="••••••••">
         </div>
-        <button class="btn btn-primary" onclick="handleRegister()" style="width: 100%; margin-bottom: 10px;">
+        <button class="btn btn-primary" onclick="handlers.register()" style="width: 100%; margin-bottom: 10px;">
           Sign Up
         </button>
         <p style="text-align: center; margin-bottom: 10px;">
           Already have an account? 
-          <a href="#" onclick="openAuthModal('login'); return false;" style="color: var(--primary-color); font-weight: 500;">Login</a>
+          <a href="#" onclick="handlers.openAuthModal('login'); return false;" style="color: var(--primary-color); font-weight: 500;">Login</a>
         </p>
-        <button class="btn btn-secondary" onclick="closeAuthModal()" style="width: 100%;">
+        <button class="btn btn-secondary" onclick="handlers.closeAuthModal()" style="width: 100%;">
           Close
         </button>
       </div>
@@ -166,265 +164,11 @@
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- App initialization -->
   <script type="module">
-    import { api } from '/js/api.js';
-    import { cart } from '/js/cart.js';
-    import { auth } from '/js/auth.js';
-    import { products } from '/js/products.js';
-
-    // Make modules available globally
-    window.api = api;
-    window.cart = cart;
-    window.auth = auth;
-    window.products = products;
-
-    // Initialize app
-    document.addEventListener('DOMContentLoaded', async () => {
-      await loadProducts();
-      updateCartUI();
-      updateAuthUI();
-      setupEventListeners();
-
-      // Subscribe to auth changes
-      auth.subscribe(() => {
-        updateAuthUI();
-      });
-
-      // Subscribe to cart changes
-      cart.subscribe(() => {
-        updateCartUI();
-      });
-    });
-
-    async function loadProducts() {
-      try {
-        await products.fetchProducts();
-        renderProducts(products.getProducts());
-      } catch (error) {
-        alert('Failed to load products: ' + error.message);
-      }
-    }
-
-    function renderProducts(productList) {
-      const container = document.getElementById('productsList');
-      
-      if (productList.length === 0) {
-        container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><p>No products found</p></div>';
-        return;
-      }
-
-      container.innerHTML = productList.map(product => `
-        <div class="product-card">
-          <img src="${product.image_url || 'https://via.placeholder.com/250x200?text=' + encodeURIComponent(product.name)}" alt="${product.name}" class="product-image">
-          <div class="product-info">
-            <h3 class="product-name">${product.name}</h3>
-            <p class="product-description">${product.description || 'Quality product'}</p>
-            <div class="product-price">$${parseFloat(product.price).toFixed(2)}</div>
-            <button class="btn btn-primary" onclick="addToCart(${product.id}, '${product.name}', ${product.price})" style="width: 100%;">
-              Add to Cart
-            </button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function setupEventListeners() {
-      document.getElementById('searchInput').addEventListener('input', debounce(filterProducts, 300));
-      document.getElementById('categoryFilter').addEventListener('change', filterProducts);
-      document.getElementById('sortFilter').addEventListener('change', filterProducts);
-    }
-
-    function debounce(func, delay) {
-      let timeout;
-      return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), delay);
-      };
-    }
-
-    async function filterProducts() {
-      const search = document.getElementById('searchInput').value;
-      const category = document.getElementById('categoryFilter').value;
-      const sort = document.getElementById('sortFilter').value;
-
-      const filtered = products.getProducts().filter(p => {
-        const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || 
-                           p.description?.toLowerCase().includes(search.toLowerCase());
-        const matchCategory = !category || p.category === category;
-        return matchSearch && matchCategory;
-      });
-
-      renderProducts(filtered);
-    }
-
-    function addToCart(productId, name, price) {
-      const product = products.getProducts().find(p => p.id === productId);
-      if (product) {
-        cart.addItem(product);
-        alert(`Added ${name} to cart!`);
-      }
-    }
-
-    function updateCartUI() {
-      const count = cart.getItemCount();
-      const badge = document.getElementById('cartCount');
-      
-      if (count > 0) {
-        badge.textContent = count;
-        badge.style.display = 'flex';
-      } else {
-        badge.style.display = 'none';
-      }
-    }
-
-    function updateAuthUI() {
-      const authNav = document.getElementById('authNav');
-      if (auth.isAuthenticated()) {
-        const user = auth.getUser();
-        authNav.innerHTML = `
-          <span style="color: white; margin-right: 10px;">👤 ${user.name || user.email}</span>
-          <button class="btn btn-secondary" onclick="handleLogout()">Logout</button>
-        `;
-      } else {
-        authNav.innerHTML = `<a href="#" class="btn btn-secondary" onclick="openAuthModal('login'); return false;">Login</a>`;
-      }
-    }
-
-    window.openAuthModal = (type) => {
-      document.getElementById('authModal').classList.add('active');
-      document.getElementById('loginForm').style.display = type === 'login' ? 'block' : 'none';
-      document.getElementById('registerForm').style.display = type === 'register' ? 'block' : 'none';
-      document.getElementById('authTitle').textContent = type === 'login' ? 'Login' : 'Create Account';
-    };
-
-    window.closeAuthModal = () => {
-      document.getElementById('authModal').classList.remove('active');
-    };
-
-    window.handleLogin = async () => {
-      const email = document.getElementById('loginEmail').value;
-      const password = document.getElementById('loginPassword').value;
-
-      if (!email || !password) {
-        alert('Please fill in all fields');
-        return;
-      }
-
-      try {
-        await auth.login(email, password);
-        closeAuthModal();
-        alert('Logged in successfully!');
-      } catch (error) {
-        alert('Login failed: ' + error.message);
-      }
-    };
-
-    window.handleRegister = async () => {
-      const name = document.getElementById('registerName').value;
-      const email = document.getElementById('registerEmail').value;
-      const password = document.getElementById('registerPassword').value;
-
-      if (!name || !email || !password) {
-        alert('Please fill in all fields');
-        return;
-      }
-
-      try {
-        await auth.register(email, password, name);
-        closeAuthModal();
-        alert('Account created successfully!');
-      } catch (error) {
-        alert('Registration failed: ' + error.message);
-      }
-    };
-
-    window.handleLogout = () => {
-      auth.logout();
-      alert('Logged out successfully!');
-    };
-
-    window.openCartModal = () => {
-      document.getElementById('cartModal').classList.add('active');
-      renderCartItems();
-    };
-
-    window.closeCartModal = () => {
-      document.getElementById('cartModal').classList.remove('active');
-    };
-
-    function renderCartItems() {
-      const items = cart.getItems();
-      const container = document.getElementById('cartItems');
-
-      if (items.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 40px;">Your cart is empty</p>';
-        return;
-      }
-
-      let html = '<table style="width: 100%; margin-bottom: 20px;"><tr style="border-bottom: 1px solid var(--border-color);"><th style="text-align: left; padding: 10px;">Product</th><th style="text-align: center; padding: 10px;">Qty</th><th style="text-align: right; padding: 10px;">Price</th></tr>';
-
-      items.forEach(item => {
-        html += `
-          <tr style="border-bottom: 1px solid var(--border-color);">
-            <td style="padding: 10px;">${item.name}</td>
-            <td style="text-align: center; padding: 10px;">
-              <input type="number" value="${item.quantity}" min="1" style="width: 50px;" onchange="cart.updateQuantity(${item.id}, this.value)">
-            </td>
-            <td style="text-align: right; padding: 10px;">$${(item.price * item.quantity).toFixed(2)}</td>
-          </tr>
-        `;
-      });
-
-      html += '</table>';
-      html += `<h3 style="text-align: right; font-size: 20px; margin-bottom: 20px;">Total: $${cart.getTotal().toFixed(2)}</h3>`;
-      html += '<button class="btn btn-primary" onclick="handleCheckout()" style="width: 100%; margin-bottom: 10px;">Checkout</button>';
-      html += '<button class="btn btn-danger" onclick="cart.clear(); renderCartItems();" style="width: 100%;">Clear Cart</button>';
-
-      container.innerHTML = html;
-    }
-
-    window.handleCheckout = async () => {
-      if (!auth.isAuthenticated()) {
-        alert('Please login to checkout');
-        closeCartModal();
-        openAuthModal('login');
-        return;
-      }
-
-      const items = cart.getItems();
-      if (items.length === 0) {
-        alert('Cart is empty');
-        return;
-      }
-
-      try {
-        const orderData = {
-          user_id: auth.getUser().id,
-          items: items.map(item => ({
-            product_id: item.id,
-            quantity: item.quantity,
-            price: item.price
-          })),
-          total_amount: cart.getTotal(),
-          shipping_address: 'TBD',
-          status: 'pending'
-        };
-
-        await api.createOrder(orderData);
-        cart.clear();
-        closeCartModal();
-        alert('Order placed successfully!');
-      } catch (error) {
-        alert('Checkout failed: ' + error.message);
-      }
-    };
-
-    // Make cart modal clickable
-    document.querySelector('a[href="#cart"]').onclick = (e) => {
-      e.preventDefault();
-      openCartModal();
-    };
+    import { initApp } from '/js/app.js';
+    
+    document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
 </html>
